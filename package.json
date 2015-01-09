@@ -1,0 +1,28 @@
+{
+  "name": "zh.asoiaf.utility",
+  "version": "0.0.0",
+  "description": "Utility functions for zh.asoiaf",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "nodemw": "*"
+  }, 
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/zh-asoiaf-wiki/zh.asoiaf.utility.git"
+  },
+  "keywords": [
+    "zh.asoiaf",
+    "api",
+    "mediawiki",
+    "wikia"
+  ],
+  "author": "AemonTargaryen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zh-asoiaf-wiki/zh.asoiaf.utility/issues"
+  },
+  "homepage": "https://github.com/zh-asoiaf-wiki/zh.asoiaf.utility"
+}
