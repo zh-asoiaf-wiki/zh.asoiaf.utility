@@ -41,13 +41,17 @@ module.exports = (function() {
             break;
           }
           // if (article.title == title) {
-          // }          
-          callback({
-            'url': BASE + article.url, 
-            // 'lastEditor': article.revision.user, 
-            'abstract': article['abstract'], 
-            'picurl': article.thumbnail
-          });
+          // }
+          if (article) {          
+            callback({
+              'url': BASE + article.url, 
+              // 'lastEditor': article.revision.user, 
+              'abstract': article['abstract'], 
+              'picurl': article.thumbnail
+            });
+          } else {
+            callback();
+          }
         });
       });
       req.on('error', function(err) {
