@@ -55,7 +55,7 @@ module.exports = (function() {
         });
       });
       req.on('error', function(err) {
-        console.log('Error: ' + err);
+        console.log(err);
       });
       req.end();
     }
