@@ -9,28 +9,15 @@ module.exports = (function() {
     /*
      * Get page info according to its title
      *
-     * options may be a string (page title) or an object, {
-     *   title: page title, 
-     *   redirect: a boolean indicates whether to retrieve redirected page 
-     * }
-     *
-     * callback receives one object argument, defined as, {
+     * callback(err, obj) receives one object argument, defined as, {
      *   url: page url, 
      *   lastEditor: last contributor, 
      *   abstract: abstract provided by api (max length = 500, should be enough), 
      *   picurl: picture selected by api 
      * }
      */
-    info: function(options, callback) {
+    info: function(title, callback) {
       var that = this;
-      var title = '';
-      var redirect = true;
-      if (typeof(options) == 'object') {
-        title = options.title;
-        redirect = options.redirect;
-      } else {
-        title = options;
-      }
       var url = BASE + '/api/v1/Articles/Details?abstract=500&width=200&height=200&titles=' + title;
       request.get(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
@@ -44,49 +31,72 @@ module.exports = (function() {
           // if (article.title == title) {
           // }
           if (article) { 
-            if (redirect) {
-              var abstr = article['abstract'];
-              var lowAbstr = abstr.toUpperCase();
-              if (lowAbstr.startWith('REDIRECT') || lowAbstr.startWith('重定向')) {
-                var index = abstr.indexOf(' ') + 1;
-                title = abstr.substring(index);
-                that.info(title, callback);
-                return;
-              }
+            var abstr = article['abstract'];
+            var lowAbstr = abstr.toUpperCase();
+            if (lowAbstr.startWith('REDIRECT') || lowAbstr.startWith('重定向')) {
+              var index = abstr.indexOf(' ') + 1;
+              title = abstr.substring(index);
+              that.info(title, callback);
+            } else {
+              callback('', {
+                'url': BASE + article.url, 
+                // 'lastEditor': article.revision.user, 
+                'abstract': article['abstract'], 
+                'picurl': article.thumbnail
+              });
             }
-            callback({
-              'url': BASE + article.url, 
-              // 'lastEditor': article.revision.user, 
-              'abstract': article['abstract'], 
-              'picurl': article.thumbnail
-            });
           } else {
-            // TODO: try search
             callback();
           }
         } else if (err) {
           console.log(err.stack);
+          callback(err);
         } else {
-          console.log('Response status: ' + res.statusCode);
+          var err = "response statusCode = " + res.statusCode;
+          callback(err);
         }
       });
     }, 
     /*
      * Try search if no page matched for such title
      *
+     * callback(err, obj) receives one array argument, each element is an object, defined as, {
+     *   title: title of the page
+     *   url: page url, 
+     *   picurl: picture selected by api 
+     * }
      */
     search: function(title, callback) {
       var url = BASE + '/api/v1/Search/List?limit=10&minArticleQuality=30&namespace=0%2C14&query=' + title;
       request.get(url, function(err, res, body) {
-        if (!err && (res.statusCode == 200 || res.statusCode == 404)) {
-          var result = JSON.parse(body);
-          var items = result.items && result.items;
+        /*
+         * 404 indicates no results; 200 otherwise.
+         */
+        if (!err && res.statusCode == 200) {
+          // var result = JSON.parse(body);
+          var items = JSON.parse(body).items;
+          // var items = result.items && result.items;
           var articles = [];
           if (items) {
             items.sort(function(a, b) {
               return a.quality < b.quality;
             });
-            callback('', items);
+            // fetch pics
+            url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&ids=';
+            for (var i = 0; i < items.length; ++i) {
+              url += items[i].id + ',';
+            }
+            request.get(url, function(err, res, body) {
+              if (!err) {
+                var result = JSON.parse(body);
+                for (var i = 0; i < items.length; ++i) {
+                  items[i].picurl = result.items[items[i].id].thumbnail;
+                }
+                callback('', items);
+              } else {
+                callback(err);
+              }
+            });
           } else {
             // No result...
             callback('', []);
