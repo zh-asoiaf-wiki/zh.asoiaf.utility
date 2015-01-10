@@ -76,19 +76,19 @@ module.exports = (function() {
      *
      */
     search: function(title, callback) {
-      var url = BASE + '/api/v1/SearchSuggestions/List?query=' + title;
+      var url = BASE + '/api/v1/Search/List?limit=10&minArticleQuality=30&namespace=0%2C14&query=' + title;
       request.get(url, function(err, res, body) {
         if (!err && (res.statusCode == 200 || res.statusCode == 404)) {
           var result = JSON.parse(body);
           var items = result.items && result.items;
+          var articles = [];
           if (items) {
-            var titles = [];
-            for (var i = 0; i < items.length; ++i) {
-              titles.push(items[i].title);
-            }
-            callback('', titles);
+            items.sort(function(a, b) {
+              return a.quality < b.quality;
+            });
+            callback('', items);
           } else {
-            // TODO search widely
+            // No result...
             callback('', []);
           }
         } else if (err) {
