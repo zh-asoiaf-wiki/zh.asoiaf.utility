@@ -28,8 +28,6 @@ module.exports = (function() {
             article = items[id];
             break;
           }
-          // if (article.title == title) {
-          // }
           if (article) { 
             var abstr = article['abstract'];
             var lowAbstr = abstr.toUpperCase();
@@ -72,7 +70,11 @@ module.exports = (function() {
         /*
          * 404 indicates no results; 200 otherwise.
          */
-        if (!err && res.statusCode == 200) {
+        if (err) {
+          callback(err);
+        } else if (res.statusCode == 404) {
+          callback('', []);
+        } else if (res.statusCode == 200) {
           // var result = JSON.parse(body);
           var items = JSON.parse(body).items;
           // var items = result.items && result.items;
@@ -98,11 +100,9 @@ module.exports = (function() {
               }
             });
           } else {
-            // No result...
+            // No result. => This maybe an Exception because a 404 will be reponsed if no results exist.
             callback('', []);
           }
-        } else if (err) {
-          callback(err);
         } else {
           var err = 'response statusCode = ' + res.statusCode;
           callback(err);
