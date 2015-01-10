@@ -1,15 +1,16 @@
 module.exports = (function() {
-  var http = require('http');
-  var _ = require('underscore');
-  var BASE = 'zh.asoiaf.wikia.com';
-  
+  var request = require('request');
+  // var http = require('http');
+  // var _ = require('underscore');
+  var BASE = 'http://zh.asoiaf.wikia.com';
+  /*
   var options = {
     hostname: BASE, 
-    port: 80, 
     path: '', 
-    method: 'GET'
+    method: 'GET', 
+    agent: false
   };
-  
+  */
   var wikia = function() {
   };
   
@@ -25,6 +26,37 @@ module.exports = (function() {
      * }
      */
     info: function(title, callback) {
+      var url = BASE + '/api/v1/Articles/Details?abstract=500&width=200&height=200&titles=' + title;
+      request.get(url, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+          var result = JSON.parse(body);
+          var items = result.items && result.items;
+          var article = null;
+          for (var id in items) {
+            article = items[id];
+            break;
+          }
+          // if (article.title == title) {
+          // }
+          if (article) {          
+            callback({
+              'url': BASE + article.url, 
+              // 'lastEditor': article.revision.user, 
+              'abstract': article['abstract'], 
+              'picurl': article.thumbnail
+            });
+          } else {
+            callback();
+          }
+        } else if (err) {
+          console.log(err.stack);
+        } else {
+          console.log('Response status: ' + res.statusCode);
+        }
+      });
+    
+    
+      /*
       var op = _.clone(options);
       op.path = '/api/v1/Articles/Details?abstract=500&width=200&height=200&titles=' + title;
       
@@ -58,6 +90,7 @@ module.exports = (function() {
         console.log(err);
       });
       req.end();
+      */
     }
   };
   
