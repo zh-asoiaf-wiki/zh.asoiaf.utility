@@ -70,6 +70,34 @@ module.exports = (function() {
           console.log('Response status: ' + res.statusCode);
         }
       });
+    }, 
+    /*
+     * Try search if no page matched for such title
+     *
+     */
+    search: function(title, callback) {
+      var url = BASE + '/api/v1/SearchSuggestions/List?query=' + title;
+      request.get(url, function(err, res, body) {
+        if (!err && (res.statusCode == 200 || res.statusCode == 404)) {
+          var result = JSON.parse(body);
+          var items = result.items && result.items;
+          if (items) {
+            var titles = [];
+            for (var i = 0; i < items.length; ++i) {
+              titles.push(items[i].title);
+            }
+            callback('', titles);
+          } else {
+            // TODO search widely
+            callback('', []);
+          }
+        } else if (err) {
+          callback(err);
+        } else {
+          var err = 'response statusCode = ' + res.statusCode;
+          callback(err);
+        }
+      });
     }
   };
   
