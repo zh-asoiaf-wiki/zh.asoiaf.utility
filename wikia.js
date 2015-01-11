@@ -118,7 +118,6 @@ module.exports = (function() {
                 if (needMore) {
                   that._getPics(items, callback);
                 }
-                // callback('', items);
               } 
             });
           } else {
@@ -145,10 +144,19 @@ module.exports = (function() {
             var zhHouse = title.substring(idx + 1) + '家族';
             // 3. get en family name
             var enHouse = this.dict.getByZh(zhHouse);
-            // 4. get file name
-            enHouse = enHouse && ('File:' + enHouse + '.png').replace(' ', '_');
-            // 5. add to query string
-            url += enHouse + ',';
+            if (enHouse) {
+              enHouse += '.png';
+              // add mark
+              items[i].picurl = enHouse;
+              // 4. get file name
+              enHouse = ('File:' + enHouse).replace(' ', '_');
+              // 5. add to query string
+              url += enHouse + ',';
+            } else {
+              items[i].picurl = '';
+            }
+          } else {
+            items[i].picurl = '';
           }
         }
       }
@@ -160,11 +168,20 @@ module.exports = (function() {
           errStatusCode(res.statusCode, callback);
         } else {
           var pics = JSON.parse(body).items;
+          // map pics to picurls
+          var pic2url = {};
+          for (var i in pics) {
+            var pic = pics[i];
+            pic2url[pic.title] = pic.thumbnail;
+          }
+          // replace mark with picurl
           for (var i = 0; i < items.length; ++i) {
-            if (pics[items[i].id]) {
-              items[i].picurl = pics[items[i].id].thumbnail;
+            var mark = items[i].picurl;
+            var picurl = pic2url[mark];
+            if (picurl) {
+              items[i].picurl = picurl;
             } else {
-              // TODO: if still no pic...
+              items[i].picurl = '';
             }
           }
           callback('', items);

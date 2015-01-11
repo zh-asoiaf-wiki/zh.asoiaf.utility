@@ -1,6 +1,5 @@
 var Wikia = require('../wikia.js');
 var wikia = new Wikia();
-// var should = require('should');
 
 describe('info()', function() {
   it('when precise title is provided', function(done) {
