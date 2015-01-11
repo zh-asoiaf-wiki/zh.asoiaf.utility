@@ -1,6 +1,6 @@
 {
   "name": "zh.asoiaf.utility",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Utility functions for zh.asoiaf",
   "main": "index.js",
   "scripts": {

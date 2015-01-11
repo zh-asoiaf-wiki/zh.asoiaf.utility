@@ -1,6 +1,7 @@
 module.exports = (function() {
   var request = require('request');
   var BASE = 'http://zh.asoiaf.wikia.com';
+  var SORT_THRESHOLD = 80;
 
   var wikia = function() {
   };
@@ -56,7 +57,7 @@ module.exports = (function() {
       });
     }, 
     /*
-     * Try search if no page matched for such title
+     * Try search if no page matched for such title (key)
      *
      * callback(err, obj) receives one array argument, each element is an object, defined as, {
      *   title: title of the page
@@ -64,8 +65,8 @@ module.exports = (function() {
      *   picurl: picture selected by api 
      * }
      */
-    search: function(title, callback) {
-      var url = BASE + '/api/v1/Search/List?limit=10&minArticleQuality=30&namespace=0%2C14&query=' + title;
+    search: function(key, callback) {
+      var url = BASE + '/api/v1/Search/List?limit=10&minArticleQuality=30&namespace=0%2C14&query=' + key;
       request.get(url, function(err, res, body) {
         /*
          * 404 indicates no results; 200 otherwise.
@@ -80,11 +81,21 @@ module.exports = (function() {
           // var items = result.items && result.items;
           var articles = [];
           if (items) {
-            /*
+            // sort original results
             items.sort(function(a, b) {
-              return a.quality < b.quality;
+              var acontain = (a.indexOf(key) != -1);
+              var bcontain = (b.indexOf(key) != -1);
+              if (acontain == bcontain) {
+                return a.quality < b.quality;
+              } else if (acontain && a.quality > SORT_THRESHOLD) {
+                return -1;
+              } else if (bcontain && b.quality > SORT_THRESHOLD) {
+                return 1;
+              } else {
+                return a.quality < b.quality;
+              }
             });
-            */
+            
             // fetch pics
             url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&ids=';
             for (var i = 0; i < items.length; ++i) {
@@ -120,6 +131,9 @@ module.exports = (function() {
     if (str == null || str == '' || this.length == 0 || str.length > this.length) return false;
     if (this.substr(0, str.length) ==str) return true; else return false;
     return true;
+  };
+  var searchSort = function(items, key) {
+    
   };
   
   return wikia;
