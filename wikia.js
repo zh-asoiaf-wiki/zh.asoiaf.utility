@@ -4,6 +4,7 @@ module.exports = (function() {
   
   var BASE = 'http://zh.asoiaf.wikia.com';
   var SORT_THRESHOLD = 80;
+  var DEFAULT_PIC = 'http://vignette4.wikia.nocookie.net/asoiaf/images/5/5c/Coats_of_arms_of_None.png/revision/latest?cb=20120412130844&path-prefix=zh';
 
   var wikia = function() {
     this.dict = new Dict();
@@ -147,7 +148,9 @@ module.exports = (function() {
           var endIdx = title.indexOf('(', idx);
           if (idx != -1) {
             // 2. get zh family name
-            var zhHouse = title.substring(idx + 1, endIdx) + '家族';
+            var zhHouse = ((endIdx == -1) 
+              ? (title.substring(idx + 1) + '家族') 
+              : (title.substring(idx + 1, endIdx) + '家族'));
             // 3. get en family name
             var enHouse = this.dict.getByZh(zhHouse);
             if (enHouse) {
@@ -160,9 +163,11 @@ module.exports = (function() {
               url += enHouse + ',';
             } else {
               marks.push(undefined);
+              items[i].picurl = DEFAULT_PIC;              
             }
           } else {
             marks.push(undefined);
+            items[i].picurl = DEFAULT_PIC;
           }
         } else {
           marks.push(undefined);
@@ -189,6 +194,8 @@ module.exports = (function() {
               var picurl = pic2url[mark];
               if (picurl) {
                 items[i].picurl = picurl;
+              } else {
+                items[i].picurl = DEFAULT_PIC;
               }
             }
           }
