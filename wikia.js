@@ -99,7 +99,7 @@ module.exports = (function() {
             });
             
             // fetch pics
-            url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&ids=';
+            url = BASE + '/api/v1/Articles/Details?abstract=0&width=100&height=100&ids=';
             for (var i = 0; i < items.length; ++i) {
               url += items[i].id + ',';
             }
@@ -112,8 +112,12 @@ module.exports = (function() {
                 var result = JSON.parse(body);
                 var needMore = false;
                 for (var i = 0; i < items.length; ++i) {
-                  items[i].picurl = result.items[items[i].id].thumbnail;
-                  !items[i].picurl && (needMore = true);
+                  var picurl = result.items[items[i].id].thumbnail;
+                  if (picurl) {
+                    items[i].picurl = picurl;
+                  } else {
+                    needMore = true;
+                  }
                 }
                 if (needMore) {
                   that._getPics(items, callback);
@@ -134,6 +138,7 @@ module.exports = (function() {
      */
     _getPics: function(items, callback) {
       var url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&titles=';
+      var marks = [];
       for (var i = 0; i < items.length; ++i) {
         if (!items[i].picurl) {
           var title = items[i].title;
@@ -147,17 +152,19 @@ module.exports = (function() {
             if (enHouse) {
               enHouse += '.png';
               // add mark
-              items[i].picurl = enHouse;
+              marks.push(enHouse);
               // 4. get file name
               enHouse = ('File:' + enHouse).replace(' ', '_');
               // 5. add to query string
               url += enHouse + ',';
             } else {
-              items[i].picurl = '';
+              marks.push(undefined);
             }
           } else {
-            items[i].picurl = '';
+            marks.push(undefined);
           }
+        } else {
+          marks.push(undefined);
         }
       }
       // 6. get pics directly
@@ -176,12 +183,12 @@ module.exports = (function() {
           }
           // replace mark with picurl
           for (var i = 0; i < items.length; ++i) {
-            var mark = items[i].picurl;
-            var picurl = pic2url[mark];
-            if (picurl) {
-              items[i].picurl = picurl;
-            } else {
-              items[i].picurl = '';
+            var mark = marks[i];
+            if (mark) {
+              var picurl = pic2url[mark];
+              if (picurl) {
+                items[i].picurl = picurl;
+              }
             }
           }
           callback('', items);
