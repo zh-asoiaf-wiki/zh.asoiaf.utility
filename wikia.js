@@ -1,9 +1,13 @@
 module.exports = (function() {
   var request = require('request');
+  var Dict = require('./dict.js');  
+  
   var BASE = 'http://zh.asoiaf.wikia.com';
   var SORT_THRESHOLD = 80;
 
   var wikia = function() {
+    this.dict = new Dict();
+    this.dict.exist();
   };
   
   wikia.prototype = {
@@ -51,8 +55,7 @@ module.exports = (function() {
           console.log(err.stack);
           callback(err);
         } else {
-          var err = "response statusCode = " + res.statusCode;
-          callback(err);
+          errStatusCode(res.statusCode, callback);
         }
       });
     }, 
@@ -66,7 +69,8 @@ module.exports = (function() {
      * }
      */
     search: function(key, callback) {
-      var url = BASE + '/api/v1/Search/List?limit=10&minArticleQuality=30&namespace=0%2C14&query=' + key;
+      var that = this;
+      var url = BASE + '/api/v1/Search/List?limit=10&minArticleQuality=1&namespace=0%2C14&query=' + key;
       request.get(url, function(err, res, body) {
         /*
          * 404 indicates no results; 200 otherwise.
@@ -76,9 +80,7 @@ module.exports = (function() {
         } else if (res.statusCode == 404) {
           callback('', []);
         } else if (res.statusCode == 200) {
-          // var result = JSON.parse(body);
           var items = JSON.parse(body).items;
-          // var items = result.items && result.items;
           var articles = [];
           if (items) {
             // sort original results
@@ -102,26 +104,73 @@ module.exports = (function() {
               url += items[i].id + ',';
             }
             request.get(url, function(err, res, body) {
-              if (!err) {
+              if (err) {
+                callback(err);
+              } else if (res.statusCode != 200) {
+                errStatusCode(res.statusCode, callback);
+              } else {
                 var result = JSON.parse(body);
+                var needMore = false;
                 for (var i = 0; i < items.length; ++i) {
                   items[i].picurl = result.items[items[i].id].thumbnail;
+                  !items[i].picurl && (needMore = true);
                 }
-                callback('', items);
-              } else {
-                callback(err);
-              }
+                if (needMore) {
+                  that._getPics(items, callback);
+                }
+                // callback('', items);
+              } 
             });
           } else {
             // No result. => This maybe an Exception because a 404 will be reponsed if no results exist.
             callback('', []);
           }
         } else {
-          var err = 'response statusCode = ' + res.statusCode;
-          callback(err);
+          errStatusCode(res.statusCode, callback);
         }
       });
-    }
+    }, 
+    /*
+     * private functions
+     */
+    _getPics: function(items, callback) {
+      var url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&titles=';
+      for (var i = 0; i < items.length; ++i) {
+        if (!items[i].picurl) {
+          var title = items[i].title;
+          // 1. if contains '·'
+          var idx = title.indexOf('·');
+          if (idx != -1) {
+            // 2. get zh family name
+            var zhHouse = title.substring(idx + 1) + '家族';
+            // 3. get en family name
+            var enHouse = this.dict.getByZh(zhHouse);
+            // 4. get file name
+            enHouse = enHouse && ('File:' + enHouse + '.png').replace(' ', '_');
+            // 5. add to query string
+            url += enHouse + ',';
+          }
+        }
+      }
+      // 6. get pics directly
+      request.get(url, function(err, res, body) {
+        if (err) {
+          callback(err);
+        } else if (res.statusCode != 200) {
+          errStatusCode(res.statusCode, callback);
+        } else {
+          var pics = JSON.parse(body).items;
+          for (var i = 0; i < items.length; ++i) {
+            if (pics[items[i].id]) {
+              items[i].picurl = pics[items[i].id].thumbnail;
+            } else {
+              // TODO: if still no pic...
+            }
+          }
+          callback('', items);
+        }
+      });
+    }    
   };
   
   /*
@@ -132,8 +181,9 @@ module.exports = (function() {
     if (this.substr(0, str.length) ==str) return true; else return false;
     return true;
   };
-  var searchSort = function(items, key) {
-    
+  var errStatusCode = function(statusCode, callback) {
+    var err = 'response statusCode = ' + statusCode;
+    callback(err);
   };
   
   return wikia;
