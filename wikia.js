@@ -80,9 +80,11 @@ module.exports = (function() {
           // var items = result.items && result.items;
           var articles = [];
           if (items) {
+            /*
             items.sort(function(a, b) {
               return a.quality < b.quality;
             });
+            */
             // fetch pics
             url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&ids=';
             for (var i = 0; i < items.length; ++i) {
