@@ -83,8 +83,8 @@ module.exports = (function() {
           if (items) {
             // sort original results
             items.sort(function(a, b) {
-              var acontain = (a.indexOf(key) != -1);
-              var bcontain = (b.indexOf(key) != -1);
+              var acontain = (a.title.indexOf(key) != -1);
+              var bcontain = (b.title.indexOf(key) != -1);
               if (acontain == bcontain) {
                 return a.quality < b.quality;
               } else if (acontain && a.quality > SORT_THRESHOLD) {
