@@ -144,9 +144,10 @@ module.exports = (function() {
           var title = items[i].title;
           // 1. if contains '·'
           var idx = title.indexOf('·');
+          var endIdx = title.indexOf('(', idx);
           if (idx != -1) {
             // 2. get zh family name
-            var zhHouse = title.substring(idx + 1) + '家族';
+            var zhHouse = title.substring(idx + 1, endIdx) + '家族';
             // 3. get en family name
             var enHouse = this.dict.getByZh(zhHouse);
             if (enHouse) {
