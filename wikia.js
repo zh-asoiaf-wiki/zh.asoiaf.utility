@@ -4,7 +4,6 @@ module.exports = (function() {
   
   var BASE = 'http://zh.asoiaf.wikia.com';
   var SORT_THRESHOLD = 80;
-  var DEFAULT_PIC = 'http://vignette4.wikia.nocookie.net/asoiaf/images/5/5c/Coats_of_arms_of_None.png/revision/latest?cb=20120412130844&path-prefix=zh';
 
   var wikia = function() {
     this.dict = new Dict();
@@ -42,12 +41,8 @@ module.exports = (function() {
               title = abstr.substring(index);
               that.info(title, callback);
             } else {
-              callback('', {
-                'url': BASE + article.url, 
-                // 'lastEditor': article.revision.user, 
-                'abstract': article['abstract'], 
-                'picurl': article.thumbnail
-              });
+              article.url = BASE + article.url;
+              callback('', article);
             }
           } else {
             callback();
@@ -100,10 +95,7 @@ module.exports = (function() {
             });
             
             // fetch pics
-            // take care of only-one-article-result
-            url = BASE + '/api/v1/Articles/Details?abstract=' 
-              + ((items.length == 1) ? 500 : 0)
-              + '&width=200&height=200&ids=';
+            url = BASE + '/api/v1/Articles/Details?abstract=500&width=200&height=200&ids=';
             for (var i = 0; i < items.length; ++i) {
               url += items[i].id + ',';
             }
@@ -116,16 +108,14 @@ module.exports = (function() {
                 var result = JSON.parse(body);
                 var needMore = false;
                 for (var i = 0; i < items.length; ++i) {
-                  var picurl = result.items[items[i].id].thumbnail;
-                  if (picurl) {
-                    items[i].picurl = picurl;
+                  var id = items[i].id;
+                  items[i]['abstract'] = result.items[id]['abstract']
+                  var thumbnail = result.items[items[i].id].thumbnail;
+                  if (thumbnail) {
+                    items[i].thumbnail = thumbnail;
                   } else {
                     needMore = true;
                   }
-                }
-                // only-one-article-result
-                if (items.length == 1) {
-                  items[0]['abstract'] = result.items[items[0].id]['abstract'];
                 }
                 // to fetch more pics
                 if (needMore) {
@@ -151,7 +141,7 @@ module.exports = (function() {
       var url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&titles=';
       var marks = [];
       for (var i = 0; i < items.length; ++i) {
-        if (!items[i].picurl) {
+        if (!items[i].thumbnail) {
           var title = items[i].title;
           // 1. if contains '·'
           var idx = title.indexOf('·');
@@ -173,11 +163,9 @@ module.exports = (function() {
               url += enHouse + ',';
             } else {
               marks.push(undefined);
-              items[i].picurl = DEFAULT_PIC;              
             }
           } else {
             marks.push(undefined);
-            items[i].picurl = DEFAULT_PIC;
           }
         } else {
           marks.push(undefined);
@@ -203,9 +191,7 @@ module.exports = (function() {
             if (mark) {
               var picurl = pic2url[mark];
               if (picurl) {
-                items[i].picurl = picurl;
-              } else {
-                items[i].picurl = DEFAULT_PIC;
+                items[i].thumbnail = picurl;
               }
             }
           }

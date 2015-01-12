@@ -9,8 +9,8 @@ describe('info()', function() {
     });
   });
   it('when title points to a redirected page', function(done) {
-    wikia.info('琼恩', function(err, info) {
-      info.should.have.property('url', 'http://zh.asoiaf.wikia.com/wiki/%E7%90%BC%E6%81%A9(%E6%B6%88%E6%AD%A7%E4%B9%89)');
+    wikia.info('泰温', function(err, info) {
+      info.should.have.property('url', 'http://zh.asoiaf.wikia.com/wiki/%E6%B3%B0%E6%B8%A9%C2%B7%E5%85%B0%E5%B0%BC%E6%96%AF%E7%89%B9');
       done();
     });
   });
