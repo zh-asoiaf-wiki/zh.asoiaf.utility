@@ -100,7 +100,10 @@ module.exports = (function() {
             });
             
             // fetch pics
-            url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&ids=';
+            // take care of only-one-article-result
+            url = BASE + '/api/v1/Articles/Details?abstract=' 
+              + ((items.length == 1) ? 500 : 0)
+              + '&width=200&height=200&ids=';
             for (var i = 0; i < items.length; ++i) {
               url += items[i].id + ',';
             }
@@ -120,8 +123,15 @@ module.exports = (function() {
                     needMore = true;
                   }
                 }
+                // only-one-article-result
+                if (items.length == 1) {
+                  items[0]['abstract'] = result.items[items[0].id]['abstract'];
+                }
+                // to fetch more pics
                 if (needMore) {
                   that._getPics(items, callback);
+                } else {
+                  callback('', items);
                 }
               } 
             });
