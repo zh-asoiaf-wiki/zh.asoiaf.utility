@@ -109,10 +109,12 @@ module.exports = (function() {
                 var needMore = false;
                 for (var i = 0; i < items.length; ++i) {
                   var id = items[i].id;
-                  items[i]['abstract'] = result.items[id]['abstract']
-                  var thumbnail = result.items[items[i].id].thumbnail;
+                  var o = result.items[items[i].id];
+                  items[i]['abstract'] = o['abstract']
+                  var thumbnail = o.thumbnail;
                   if (thumbnail) {
                     items[i].thumbnail = thumbnail;
+                    items[i]['original_dimensions'] = o['original_dimensions'];
                   } else {
                     needMore = true;
                   }
@@ -183,7 +185,10 @@ module.exports = (function() {
           var pic2url = {};
           for (var i in pics) {
             var pic = pics[i];
-            pic2url[pic.title] = pic.thumbnail;
+            pic2url[pic.title] = {
+              'thumbnail': pic.thumbnail, 
+              'original_dimensions': pic['original_dimensions']
+            };
           }
           // replace mark with picurl
           for (var i = 0; i < items.length; ++i) {
@@ -191,7 +196,8 @@ module.exports = (function() {
             if (mark) {
               var picurl = pic2url[mark];
               if (picurl) {
-                items[i].thumbnail = picurl;
+                items[i].thumbnail = picurl.thumbnail;
+                items[i]['original_dimensions'] = picurl['original_dimensions'];
               }
             }
           }
