@@ -12,43 +12,50 @@ module.exports = (function() {
   
   wikia.prototype = {
     /*
-     * Get page info according to its title
+     * Get details about a page with a given title.
      *
-     * callback(err, obj) receives one object argument, defined as, {
-     *   url: page url, 
-     *   lastEditor: last contributor, 
-     *   abstract: abstract provided by api (max length = 500, should be enough), 
-     *   picurl: picture selected by api 
+     * input o, defined as, {
+     *   title: title of the page, 
+     *   abstract: length of the abstract returned, 500 by default, 
+     *   width: width of its thumbnail, 200 by default, 
+     *   height: height of its thumbnail, 200 by default
      * }
+     *
+     * callback(err, obj) receives one object argument, described on: 
+     * http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
      */
-    info: function(title, callback) {
-      var that = this;
-      var url = BASE + '/api/v1/Articles/Details?abstract=500&width=200&height=200&titles=' + title;
+    info: function(o, callback) {
+      var that = this, 
+          title = o.title || o, 
+          abstr = o['abstract'] || 500, 
+          width = o.width || 200, 
+          height = o.height || 200, 
+          url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
+            + '&width=' + width
+            + '&height=' + height
+            + '&titles=' + title;
       request.get(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
-          var result = JSON.parse(body);
-          var items = result.items && result.items;
-          var article = null;
+          var items = JSON.parse(body).items, 
+              article = null;
           for (var id in items) {
             article = items[id];
             break;
           }
-          if (article) { 
-            var abstr = article['abstract'];
-            var lowAbstr = abstr.toUpperCase();
-            if (lowAbstr.startWith('REDIRECT') || lowAbstr.startWith('重定向')) {
-              var index = abstr.indexOf(' ') + 1;
-              title = abstr.substring(index);
-              that.info(title, callback);
-            } else {
-              article.url = BASE + article.url;
-              callback('', article);
-            }
+          // handle redirection
+          var abstr = article['abstract'], 
+              upAbstr = abstr.toUpperCase();
+          if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
+            var index = abstr.indexOf(' ') + 1;
+            title = abstr.substring(index);
+            // recursion
+            // TODO: a redirection loop will raise an exception
+            that.info(title, callback);
           } else {
-            callback();
+            article.url = BASE + article.url;
+            callback('', article);
           }
         } else if (err) {
-          console.log(err.stack);
           callback(err);
         } else {
           errStatusCode(res.statusCode, callback);
@@ -56,21 +63,40 @@ module.exports = (function() {
       });
     }, 
     /*
-     * Try search if no page matched for such title (key)
+     * Search pages by a given key.
+     * 1. Search relevant pages by query key
+     * 2. Get details about these results, abstract, thumbnail, etc...
+     * 3. Handle pages with no explicit thumbnail
      *
-     * callback(err, obj) receives one array argument, each element is an object, defined as, {
-     *   title: title of the page
-     *   url: page url, 
-     *   picurl: picture selected by api 
+     * input o, defined as, { 
+     *   key: query key, 
+     *   limit: number of results, 10 by default, 
+     *   quality: minimum of article quality, 1 by default (get every pages), 
+     *   namespace: search under which namespace, '0%2C14' by default, 
+     *   info: options used to get details about these results, defined as above
+     * }
+     *
+     * callback(err, obj) receives one array argument, each element is an object, described on: 
+     * http://zh.asoiaf.wikia.com/api/v1#!/Search/getList_get_0 and combined with
+     * http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
      * }
      */
-    search: function(key, callback) {
-      var that = this;
-      var url = BASE + '/api/v1/Search/List?limit=10&minArticleQuality=1&namespace=0%2C14&query=' + key;
+    search: function(o, callback) {
+      var that = this, 
+          key = o.key || o, 
+          limit = o.limit || 10, 
+          quality = o.quality || 1, 
+          namespace = o.namespace || '0%2C14', 
+          info = o.info || { 'abstract': 500, 'width': 200, 'height': 200 };
+      !info['abstract'] && (info['abstract'] = 500);
+      !info.width && (info.width = 200);
+      !info.height && (info.height = 200);
+      var url = BASE + '/api/v1/Search/List?limit=' + limit 
+        + '&minArticleQuality=' + quality 
+        + '&namespace=' + namespace 
+        + '&query=' + key;
       request.get(url, function(err, res, body) {
-        /*
-         * 404 indicates no results; 200 otherwise.
-         */
+        // 404 indicates no results; 200 otherwise.
         if (err) {
           callback(err);
         } else if (res.statusCode == 404) {
@@ -78,69 +104,72 @@ module.exports = (function() {
         } else if (res.statusCode == 200) {
           var items = JSON.parse(body).items;
           var articles = [];
-          if (items) {
-            // sort original results
-            items.sort(function(a, b) {
-              var acontain = (a.title.indexOf(key) != -1);
-              var bcontain = (b.title.indexOf(key) != -1);
-              if (acontain == bcontain) {
-                return a.quality < b.quality;
-              } else if (acontain && a.quality > SORT_THRESHOLD) {
-                return -1;
-              } else if (bcontain && b.quality > SORT_THRESHOLD) {
-                return 1;
-              } else {
-                return a.quality < b.quality;
-              }
-            });
-            
-            // fetch pics
-            url = BASE + '/api/v1/Articles/Details?abstract=500&width=200&height=200&ids=';
-            for (var i = 0; i < items.length; ++i) {
-              url += items[i].id + ',';
+          // sort original results
+          items.sort(function(a, b) {
+            var acontain = (a.title.indexOf(key) != -1);
+            var bcontain = (b.title.indexOf(key) != -1);
+            if (acontain == bcontain) {
+              return a.quality < b.quality;
+            } else if (acontain && a.quality > SORT_THRESHOLD) {
+              return -1;
+            } else if (bcontain && b.quality > SORT_THRESHOLD) {
+              return 1;
+            } else {
+              return a.quality < b.quality;
             }
-            request.get(url, function(err, res, body) {
-              if (err) {
-                callback(err);
-              } else if (res.statusCode != 200) {
-                errStatusCode(res.statusCode, callback);
-              } else {
-                var result = JSON.parse(body);
-                var needMore = false;
-                for (var i = 0; i < items.length; ++i) {
-                  var id = items[i].id;
-                  var o = result.items[items[i].id];
-                  items[i]['abstract'] = o['abstract']
-                  var thumbnail = o.thumbnail;
-                  if (thumbnail) {
-                    items[i].thumbnail = thumbnail;
-                    items[i]['original_dimensions'] = o['original_dimensions'];
-                  } else {
-                    needMore = true;
-                  }
-                }
-                // to fetch more pics
-                if (needMore) {
-                  that._getPics(items, callback);
-                } else {
-                  callback('', items);
-                }
-              } 
-            });
-          } else {
-            // No result. => This maybe an Exception because a 404 will be reponsed if no results exist.
-            callback('', []);
+          });
+          
+          // get details of these results
+          url = BASE + '/api/v1/Articles/Details?abstract=' + info['abstract'] 
+            + '&width=' + info.width 
+            + '&height=' + info.height 
+            + '&ids=';
+          for (var i = 0; i < items.length; ++i) {
+            url += items[i].id + ',';
           }
+          request.get(url, function(err, res, body) {
+            if (err) {
+              callback(err);
+            } else if (res.statusCode != 200) {
+              errStatusCode(res.statusCode, callback);
+            } else {
+              var result = JSON.parse(body), 
+                  needMore = false;
+              for (var i = 0; i < items.length; ++i) {
+                var o = result.items[items[i].id];
+                items[i]['abstract'] = o['abstract']
+                var thumbnail = o.thumbnail;
+                if (thumbnail) {
+                  items[i].thumbnail = thumbnail;
+                  items[i]['original_dimensions'] = o['original_dimensions'];
+                } else {
+                  needMore = true;
+                }
+              }
+              // to fetch more pics
+              if (needMore) {
+                that._getPics(info, items, callback);
+              } else {
+                callback('', items);
+              }
+            } 
+          });
         } else {
           errStatusCode(res.statusCode, callback);
         }
       });
     }, 
     /*
-     * private functions
+     * Try get thumbnail of those pages without explicit thumbnail.
+     *
+     * Rules: 
+     * 1. '某某·拜拉席恩' => '拜拉席恩家族' = (via dict) > 'House Baratheon' => 'File:House_Baratheon.png' => get pic
+     * TODO...
      */
-    _getPics: function(items, callback) {
-      var url = BASE + '/api/v1/Articles/Details?abstract=0&width=200&height=200&titles=';
+    _getPics: function(o, items, callback) {
+      var url = BASE + '/api/v1/Articles/Details?abstract=0&width=' + o.width 
+        + '&height=' + o.height 
+        + '&titles=';
       var marks = [];
       for (var i = 0; i < items.length; ++i) {
         if (!items[i].thumbnail) {
