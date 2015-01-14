@@ -42,18 +42,22 @@ module.exports = (function() {
             article = items[id];
             break;
           }
-          // handle redirection
-          var abstr = article['abstract'], 
-              upAbstr = abstr.toUpperCase();
-          if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
-            var index = abstr.indexOf(' ') + 1;
-            title = abstr.substring(index);
-            // recursion
-            // TODO: a redirection loop will raise an exception
-            that.info(title, callback);
+          if (article) {
+            // handle redirection
+            var abstr = article['abstract'], 
+                upAbstr = abstr.toUpperCase();
+            if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
+              var index = abstr.indexOf(' ') + 1;
+              title = abstr.substring(index);
+              // recursion
+              // TODO: a redirection loop will raise an exception
+              that.info(title, callback);
+            } else {
+              article.url = BASE + article.url;
+              callback('', article);
+            }
           } else {
-            article.url = BASE + article.url;
-            callback('', article);
+            callback();
           }
         } else if (err) {
           callback(err);
