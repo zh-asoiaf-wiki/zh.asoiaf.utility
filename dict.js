@@ -1,6 +1,7 @@
 module.exports = (function() {
-  var request = require('request');
-  var fs = require('fs');
+  var request = require('request'), 
+      fs = require('fs'), 
+      util = require('./util.js');
   
   var dict = function() {
     this.enzh = undefined;
@@ -21,7 +22,7 @@ module.exports = (function() {
         return true;
       } else {
         if (fs.existsSync('dict-enzh.json')) {
-          this.enzh = JSON.parse(fs.readFileSync('./dict-enzh.json', { encoding: 'utf-8' }));
+          this.enzh = JSON.parse(fs.readFileSync('dict-enzh.json'));
           this.zhen = flip(this.enzh);
           this.isStale() && this.fetch();
           return true;
@@ -31,20 +32,20 @@ module.exports = (function() {
         }
       }
     }, 
+    /*
+     * dict becomes stale after today.
+     */
     isStale: function() {
-      var addZero = function(num) {
-        return (num < 10) ? '0' + num : '' + num;
-      }
-      var d = new Date();
-      var now = '' + d.getUTCFullYear() + addZero(d.getUTCMonth() + 1) + addZero(d.getUTCDate()); 
-      var ts = this.enzh['__TIMESTAMP__'];
+      var now = util.dateStr(new Date()) + '000000', 
+          ts = this.enzh['__TIMESTAMP__'];
       return (now - ts > 0);
     }, 
     fetch: function() {
-      var that = this;
-      request.get('http://zh.asoiaf.wikia.com/api.php?action=query&prop=revisions&rvprop=content&titles=MediaWiki:Common.js/dict&format=json', function(err, res, body) {
-        var result = JSON.parse(body);
-        var dictStr = result.query.pages['15606'].revisions[0]['*'];  // 15606 is page id of MediaWiki:Common.js/dict
+      var that = this, 
+          url = 'http://zh.asoiaf.wikia.com/api.php?action=query&prop=revisions&rvprop=content&titles=MediaWiki:Common.js/dict&format=json';
+      request.get(url, function(err, res, body) {
+        var result = JSON.parse(body), 
+            dictStr = result.query.pages['15606'].revisions[0]['*'];  // 15606 is page id of MediaWiki:Common.js/dict
         that.enzh = JSON.parse(dictStr.substring(16)); // jump over 'var MAIN_DICT = '
         that.zhen = flip(that.enzh);
         that.write();

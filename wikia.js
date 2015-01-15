@@ -1,6 +1,7 @@
 module.exports = (function() {
   var request = require('request');
   var Dict = require('./dict.js');  
+  var Quote = require('./quote.js');
   
   var BASE = 'http://zh.asoiaf.wikia.com';
   var SORT_THRESHOLD = 80;
@@ -8,6 +9,9 @@ module.exports = (function() {
   var wikia = function() {
     this.dict = new Dict();
     this.dict.exist();
+    
+    this.quote = new Quote();
+    this.quote.exist();
   };
   
   wikia.prototype = {
@@ -237,7 +241,14 @@ module.exports = (function() {
           callback('', items);
         }
       });
-    }    
+    }, 
+    /*
+     * Advanced features...
+     */
+    quote: function(callback) {
+    }, 
+    doYouKnow: function(callback) {
+    }
   };
   
   /*
