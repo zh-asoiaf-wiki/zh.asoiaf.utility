@@ -1,10 +1,10 @@
 module.exports = (function() {
-  var request = require('request');
-  var Dict = require('./dict.js');  
-  var Quote = require('./quote.js');
+  var request = require('request'), 
+      Dict = require('./dict.js'), 
+      Quote = require('./quote.js');
   
-  var BASE = 'http://zh.asoiaf.wikia.com';
-  var SORT_THRESHOLD = 80;
+  var BASE = 'http://zh.asoiaf.wikia.com', 
+      SORT_THRESHOLD = 80;
 
   var wikia = function() {
     this.dict = new Dict();
@@ -25,7 +25,7 @@ module.exports = (function() {
      *   height: height of its thumbnail, 200 by default
      * }
      *
-     * callback(err, obj) receives one object argument, described on: 
+     * callback(err, info) receives one object argument, described on: 
      * http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
      */
     info: function(o, callback) {
@@ -62,6 +62,71 @@ module.exports = (function() {
             }
           } else {
             callback();
+          }
+        } else if (err) {
+          callback(err);
+        } else {
+          errStatusCode(res.statusCode, callback);
+        }
+      });
+    }, 
+    /*
+     * Get details about pages with given titles.
+     *
+     * input o, defined as, {
+     *   titles: array of titles of these pages, 
+     *   abstract: length of the abstract returned, 500 by default, 
+     *   width: width of its thumbnail, 200 by default, 
+     *   height: height of its thumbnail, 200 by default
+     * }
+     *
+     * callback(err, infos) receives an array of objects, described on: 
+     * http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
+     */    
+    infos: function(o, callback) {
+      var that = this, 
+          titles = o.titles || o, 
+          abstr = o['abstract'] || 500, 
+          width = o.width || 200, 
+          height = o.height || 200, 
+          url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
+            + '&width=' + width
+            + '&height=' + height
+            + '&titles=' + appendQuery(titles);
+      request.get(url, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+          var items = JSON.parse(body).items, 
+              articles = [];
+          var redirect = {};
+          var redirectTitles = [];
+          for (var id in items) {
+            var article = items[id], 
+                abstr = article['abstract'], 
+                upAbstr = abstr.toUpperCase();
+            // handle redirection
+            if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
+              var index = abstr.indexOf(' ') + 1;
+              title = abstr.substring(index);
+              // redirect[article.title] = title;
+              redirect[title] = [ article.id, article.title ];
+              redirectTitles.push(title);
+            } else {
+              article.url = BASE + article.url;
+            }
+          }
+          if (redirectTitles.length > 0) {
+            o.titles = redirectTitles;
+            that.infos(o, function(err, infos) {
+              for (var i = 0; i < infos.length; ++i) {
+                var info = infos[i], 
+                    srcId = redirect[info.title][0]; 
+                items[srcId] = undefined;
+                items[info.id] = info;
+              }
+              callback('', obj2arr(items));
+            });
+          } else {
+            callback('', obj2arr(items));
           }
         } else if (err) {
           callback(err);
@@ -242,10 +307,28 @@ module.exports = (function() {
         }
       });
     }, 
-    /*
+    /***********************
      * Advanced features...
+     ************************/
+    /*
+     * Get one featured quote. 
+     *
+     * callback receives one object argument, defined as, {
+     *   quote: content of the quote, 
+     *   items: array of objects about related pages, described on: 
+     *   http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
+     * }
      */
     quote: function(callback) {
+      var q = quote.get(), 
+          k, v;
+      for (k in q) {
+        v = q[k];
+      }
+      this.info(v, function(err, info) {
+        
+      });
+      
     }, 
     doYouKnow: function(callback) {
     }
@@ -254,6 +337,25 @@ module.exports = (function() {
   /*
    * Utility functions used by wikia.js
    */
+  var appendQuery = function(array, delimiter) {
+    delimiter = delimiter || ',';
+    var str = '';
+    if (array) {
+      for (var i = 0; i < array.length; ++i) {
+        str += array[i] + delimiter;
+      }
+      return str;
+    } else {
+      return '';
+    }
+  };
+  var obj2arr = function(o) {
+    var arr = [];
+    for (var e in o) {
+      arr.push(o[e]);
+    }
+    return arr;
+  };
   String.prototype.startWith = function(str) {
     if (str == null || str == '' || this.length == 0 || str.length > this.length) return false;
     if (this.substr(0, str.length) ==str) return true; else return false;
