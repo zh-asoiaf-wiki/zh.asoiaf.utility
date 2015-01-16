@@ -1,5 +1,6 @@
 module.exports = (function() {
   var request = require('request');
+  var _ = require('underscore');
   var Dict = require('./dict.js');
   var Quote = require('./quote.js');
   
@@ -84,29 +85,89 @@ module.exports = (function() {
      * http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
      */    
     infos: function(o, callback) {
+      // return infos according to the original sequence
+      var ret = function(titles, items) {
+        console.log(titles);
+        console.log(items);
+        var res = [];
+        _.each(items, function(item) {
+          res[_.indexOf(titles, item.title)] = item;
+        });
+        return res;
+      };
+    
       var that = this;
-      var titles = o.titles || o;
-      var abstr = o['abstract'] || 500;
-      var width = o.width || 200;
-      var height = o.height || 200;
-      var url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
-        + '&width=' + width
-        + '&height=' + height
-        + '&titles=' + appendQuery(titles);
+      if (_.isString(o)) {
+        o = { titles: [ o ] };
+      } else if (_.isArray(o)) {
+        o = { titles: o };
+      }
+      o['abstract'] = o['abstract'] || 500;
+      o.width = o.width || 200;
+      o.height = o.height || 200;
+      o.depth = o.depth || 0; // recursion depth
+      console.log('depth: ' + o.depth);
+      //var titles = o.titles || o;
+      //var srcTitles = titles.slice(); // clone the original titles in case redirection exist.
+      var url = BASE + '/api/v1/Articles/Details?abstract=' + o['abstract'] 
+        + '&width=' + o.width
+        + '&height=' + o.height
+        + '&titles=' + appendQuery(o.titles);
+      console.log(url);
       request.get(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
           var items = JSON.parse(body).items;
-          var articles = []; // results to be returned
-          var redirect = {}; // title of redirected page => id of redirecting page, e.g. '琼恩(消歧义)' => '15673' (15673 is the id of page '琼恩'
+          var articles = []; // results to be returned, sequence of elements is consistent with that in original titles array
+          var redirectMap = {}; // title of redirected page => id of redirecting page, e.g. '琼恩(消歧义)' => '15673' (15673 is the id of page '琼恩'
           var redirectTitles = []; // array of titles of redirected pages
-          for (var id in items) {
-            var article = items[id];
+          
+          var remap = {};
+          var retitles = []; // array of titles of redirected pages
+          _.each(items, function(article) {
+            // handle redirection
             var abstr = article['abstract'];
             var upAbstr = abstr.toUpperCase();
-            // handle redirection
             if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
               var index = abstr.indexOf(' ') + 1;
-              title = abstr.substring(index);
+              var title = abstr.substring(index);
+              remap[title] = article.id;
+              retitles.push(title);
+            } else {
+              article.url = BASE + article.url;
+            }
+          });
+          if (retitles.length > 0) {
+            console.log('####');
+            var no = _.clone(o);
+            no.titles = retitles;
+            ++no.depth;
+            that.infos(no, function(err, infos) {
+              _.each(infos, function(info) {
+                var srcId = remap[info.title];
+                items[srcId] = undefined;
+                items[info.id] = info;
+              });
+              // check if still in recursion
+              if (--no.depth > 0) {
+                callback('', obj2arr(items));
+              } else {
+                callback('', ret(o.titles, items));
+              }
+            });
+          } else {
+            callback('', ret(o.titles, items));
+          }
+          
+          /*
+          for (var id in items) {
+            var article = items[id];
+            // handle redirection
+            var abstr = article['abstract'];
+            var upAbstr = abstr.toUpperCase();
+            if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
+              var index = abstr.indexOf(' ') + 1;
+              var title = abstr.substring(index);
+              console.log('redirect{}: ' + title + ' ' + article.id);
               redirect[title] = article.id;
               redirectTitles.push(title);
             } else {
@@ -119,7 +180,7 @@ module.exports = (function() {
               for (var i = 0; i < infos.length; ++i) {
                 var info = infos[i];
                 var srcId = redirect[info.title];
-                items[srcId] = undefined; // clear useless items (redirecting pages)
+                items[srcId] = undefined; // mark redirecting pages
                 items[info.id] = info;
               }
               callback('', obj2arr(items));
@@ -127,6 +188,7 @@ module.exports = (function() {
           } else {
             callback('', obj2arr(items));
           }
+          */
         } else if (err) {
           callback(err);
         } else {
@@ -354,15 +416,15 @@ module.exports = (function() {
     }
   };
   /*
-   * Transfer an object into an array. Will ignore undefined value.
+   * Transfer an object into an array. Will not ignore undefined value.
    *
    * obj2arr({ '1': { 'title': 'one' }, '2': undefined, '3': { 'title': 'three' }}) will return:
-   * [ { 'title': 'one' }, { 'title': 'three' } ]
+   * [ { 'title': 'one' }, undefined, { 'title': 'three' } ]
    */
   var obj2arr = function(o) {
     var arr = [];
     for (var e in o) {
-      o[e] && arr.push(o[e]);
+      arr.push(o[e]);
     }
     return arr;
   };
