@@ -1,10 +1,10 @@
 module.exports = (function() {
-  var request = require('request'), 
-      Dict = require('./dict.js'), 
-      Quote = require('./quote.js');
+  var request = require('request');
+  var Dict = require('./dict.js');
+  var Quote = require('./quote.js');
   
-  var BASE = 'http://zh.asoiaf.wikia.com', 
-      SORT_THRESHOLD = 80;
+  var BASE = 'http://zh.asoiaf.wikia.com';
+  var SORT_THRESHOLD = 80;
 
   var wikia = function() {
     this.dict = new Dict();
@@ -29,27 +29,27 @@ module.exports = (function() {
      * http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
      */
     info: function(o, callback) {
-      var that = this, 
-          title = o.title || o, 
-          abstr = o['abstract'] || 500, 
-          width = o.width || 200, 
-          height = o.height || 200, 
-          url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
-            + '&width=' + width
-            + '&height=' + height
-            + '&titles=' + title;
+      var that = this;
+      var title = o.title || o;
+      var abstr = o['abstract'] || 500;
+      var width = o.width || 200;
+      var height = o.height || 200;
+      var url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
+        + '&width=' + width
+        + '&height=' + height
+        + '&titles=' + title;
       request.get(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
-          var items = JSON.parse(body).items, 
-              article = null;
+          var items = JSON.parse(body).items;
+          var article = null;
           for (var id in items) {
             article = items[id];
             break;
           }
           if (article) {
             // handle redirection
-            var abstr = article['abstract'], 
-                upAbstr = abstr.toUpperCase();
+            var abstr = article['abstract'];
+            var upAbstr = abstr.toUpperCase();
             if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
               var index = abstr.indexOf(' ') + 1;
               title = abstr.substring(index);
@@ -84,31 +84,30 @@ module.exports = (function() {
      * http://zh.asoiaf.wikia.com/api/v1#!/Articles/getDetails_get_1
      */    
     infos: function(o, callback) {
-      var that = this, 
-          titles = o.titles || o, 
-          abstr = o['abstract'] || 500, 
-          width = o.width || 200, 
-          height = o.height || 200, 
-          url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
-            + '&width=' + width
-            + '&height=' + height
-            + '&titles=' + appendQuery(titles);
+      var that = this;
+      var titles = o.titles || o;
+      var abstr = o['abstract'] || 500;
+      var width = o.width || 200;
+      var height = o.height || 200;
+      var url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
+        + '&width=' + width
+        + '&height=' + height
+        + '&titles=' + appendQuery(titles);
       request.get(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
-          var items = JSON.parse(body).items, 
-              articles = [];
-          var redirect = {};
-          var redirectTitles = [];
+          var items = JSON.parse(body).items;
+          var articles = []; // results to be returned
+          var redirect = {}; // title of redirected page => id of redirecting page, e.g. '琼恩(消歧义)' => '15673' (15673 is the id of page '琼恩'
+          var redirectTitles = []; // array of titles of redirected pages
           for (var id in items) {
-            var article = items[id], 
-                abstr = article['abstract'], 
-                upAbstr = abstr.toUpperCase();
+            var article = items[id];
+            var abstr = article['abstract'];
+            var upAbstr = abstr.toUpperCase();
             // handle redirection
             if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
               var index = abstr.indexOf(' ') + 1;
               title = abstr.substring(index);
-              // redirect[article.title] = title;
-              redirect[title] = [ article.id, article.title ];
+              redirect[title] = article.id;
               redirectTitles.push(title);
             } else {
               article.url = BASE + article.url;
@@ -118,9 +117,9 @@ module.exports = (function() {
             o.titles = redirectTitles;
             that.infos(o, function(err, infos) {
               for (var i = 0; i < infos.length; ++i) {
-                var info = infos[i], 
-                    srcId = redirect[info.title][0]; 
-                items[srcId] = undefined;
+                var info = infos[i];
+                var srcId = redirect[info.title];
+                items[srcId] = undefined; // clear useless items (redirecting pages)
                 items[info.id] = info;
               }
               callback('', obj2arr(items));
@@ -334,8 +333,13 @@ module.exports = (function() {
     }
   };
   
-  /*
+  /*************************************
    * Utility functions used by wikia.js
+   *************************************/
+  /*
+   * implode array and seperating each elements with delimiter. 
+   *
+   * E.g., appendQuery([one, two], ',') will return 'one,two,'
    */
   var appendQuery = function(array, delimiter) {
     delimiter = delimiter || ',';
@@ -349,10 +353,16 @@ module.exports = (function() {
       return '';
     }
   };
+  /*
+   * Transfer an object into an array. Will ignore undefined value.
+   *
+   * obj2arr({ '1': { 'title': 'one' }, '2': undefined, '3': { 'title': 'three' }}) will return:
+   * [ { 'title': 'one' }, { 'title': 'three' } ]
+   */
   var obj2arr = function(o) {
     var arr = [];
     for (var e in o) {
-      arr.push(o[e]);
+      o[e] && arr.push(o[e]);
     }
     return arr;
   };
