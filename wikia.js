@@ -11,8 +11,8 @@ module.exports = (function() {
     this.dict = new Dict();
     this.dict.exist();
     
-    this.quote = new Quote();
-    this.quote.exist();
+    this.quotes = new Quote();
+    this.quotes.exist();
   };
   
   wikia.prototype = {
@@ -342,15 +342,21 @@ module.exports = (function() {
      * }
      */
     quote: function(callback) {
-      var q = quote.get(), 
+      var q = this.quotes.get(), 
           k, v;
       for (k in q) {
         v = q[k];
       }
-      this.info(v, function(err, info) {
-        
+      this.infos(v, function(err, infos) {
+        if (err) {
+          callback(err);
+        } else {
+          callback('', {
+            quote: q, 
+            items: infos
+          });
+        }
       });
-      
     }, 
     doYouKnow: function(callback) {
     }

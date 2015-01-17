@@ -18,7 +18,7 @@ describe('info()', function() {
 
 describe('infos()', function() {
   it('when only one title is provided', function(done) {
-    wikia.infos([ '凯冯·兰尼斯特' ], function(err, infos) {
+    wikia.infos('凯冯·兰尼斯特', function(err, infos) {
       infos[0].should.have.property('url', 'http://zh.asoiaf.wikia.com/wiki/%E5%87%AF%E5%86%AF%C2%B7%E5%85%B0%E5%B0%BC%E6%96%AF%E7%89%B9');
       done();
     });
@@ -87,6 +87,15 @@ describe('search()', function() {
     wikia.search('丹尼斯', function(err, items) {
       err.should.equal('');
       items.should.not.equal([]);
+      done();
+    });
+  });
+});
+
+describe('quote()', function() {
+  it('quote()', function(done) {
+    wikia.quote(function(err, items) {
+      err.should.equal('');
       done();
     });
   });
