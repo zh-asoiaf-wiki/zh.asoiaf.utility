@@ -86,14 +86,17 @@ module.exports = (function() {
      */    
     infos: function(o, callback) {
       // return infos according to the original sequence
+      // same pages (after redirection handling) will only occupy one element in the array
       var ret = function(titles, items) {
-        console.log(titles);
-        console.log(items);
         var res = [];
-        _.each(items, function(item) {
-          res[_.indexOf(titles, item.title)] = item;
+        _.each(titles, function(title) {
+          var v = items[title];
+          while (_.isString(v)) {
+            v = items[v];
+          }
+          res.push(v);
         });
-        return res;
+        return _.uniq(res);
       };
     
       var that = this;
@@ -106,22 +109,13 @@ module.exports = (function() {
       o.width = o.width || 200;
       o.height = o.height || 200;
       o.depth = o.depth || 0; // recursion depth
-      console.log('depth: ' + o.depth);
-      //var titles = o.titles || o;
-      //var srcTitles = titles.slice(); // clone the original titles in case redirection exist.
       var url = BASE + '/api/v1/Articles/Details?abstract=' + o['abstract'] 
         + '&width=' + o.width
         + '&height=' + o.height
         + '&titles=' + appendQuery(o.titles);
-      console.log(url);
       request.get(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
           var items = JSON.parse(body).items;
-          var articles = []; // results to be returned, sequence of elements is consistent with that in original titles array
-          var redirectMap = {}; // title of redirected page => id of redirecting page, e.g. '琼恩(消歧义)' => '15673' (15673 is the id of page '琼恩'
-          var redirectTitles = []; // array of titles of redirected pages
-          
-          var remap = {};
           var retitles = []; // array of titles of redirected pages
           _.each(items, function(article) {
             // handle redirection
@@ -130,65 +124,32 @@ module.exports = (function() {
             if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
               var index = abstr.indexOf(' ') + 1;
               var title = abstr.substring(index);
-              remap[title] = article.id;
               retitles.push(title);
+              items[article.title] = title;
             } else {
               article.url = BASE + article.url;
+              items[article.title] = article;
             }
           });
           if (retitles.length > 0) {
-            console.log('####');
             var no = _.clone(o);
             no.titles = retitles;
             ++no.depth;
             that.infos(no, function(err, infos) {
-              _.each(infos, function(info) {
-                var srcId = remap[info.title];
-                items[srcId] = undefined;
-                items[info.id] = info;
-              });
-              // check if still in recursion
+              _.extend(items, infos);
               if (--no.depth > 0) {
-                callback('', obj2arr(items));
+                callback('', items);
               } else {
                 callback('', ret(o.titles, items));
               }
             });
           } else {
-            callback('', ret(o.titles, items));
-          }
-          
-          /*
-          for (var id in items) {
-            var article = items[id];
-            // handle redirection
-            var abstr = article['abstract'];
-            var upAbstr = abstr.toUpperCase();
-            if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
-              var index = abstr.indexOf(' ') + 1;
-              var title = abstr.substring(index);
-              console.log('redirect{}: ' + title + ' ' + article.id);
-              redirect[title] = article.id;
-              redirectTitles.push(title);
+            if (o.depth > 0) {
+              callback('', items);
             } else {
-              article.url = BASE + article.url;
+              callback('', ret(o.titles, items));
             }
           }
-          if (redirectTitles.length > 0) {
-            o.titles = redirectTitles;
-            that.infos(o, function(err, infos) {
-              for (var i = 0; i < infos.length; ++i) {
-                var info = infos[i];
-                var srcId = redirect[info.title];
-                items[srcId] = undefined; // mark redirecting pages
-                items[info.id] = info;
-              }
-              callback('', obj2arr(items));
-            });
-          } else {
-            callback('', obj2arr(items));
-          }
-          */
         } else if (err) {
           callback(err);
         } else {
