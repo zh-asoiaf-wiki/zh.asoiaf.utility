@@ -313,8 +313,10 @@ module.exports = (function() {
             var mark = marks[i];
             if (mark) {
               var pic = pics[mark];
-              item.thumbnail = pic.thumbnail;
-              item['original_dimensions'] = pic['original_dimensions'];
+              if (pic) {
+                item.thumbnail = pic.thumbnail;
+                item['original_dimensions'] = pic['original_dimensions'];
+              }
             }
           });
           callback('', items);
