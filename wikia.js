@@ -347,10 +347,16 @@ module.exports = (function() {
         if (err) {
           callback(err);
         } else {
-          callback('', {
-            quote: k, 
-            quotedBy: ((infos.length === 0) ? v : infos)
-          });
+          var res = {
+            quote: k
+          };
+          if (infos.length !== 0) {
+            infos[0].title = v;
+            res.quotedBy = infos;
+          } else {
+            res.quotedBy = v;
+          }
+          callback('', res);
         }
       });
     }, 
