@@ -7,7 +7,7 @@ module.exports = (function() {
   var BASE = 'http://zh.asoiaf.wikia.com';
   var SORT_THRESHOLD = 80;
 
-  var wikia = function() {
+  var Wikia = function() {
     this.dict = new Dict();
     this.dict.exist();
     
@@ -15,7 +15,7 @@ module.exports = (function() {
     this.quotes.exist();
   };
   
-  wikia.prototype = {
+  Wikia.prototype = {
     /*
      * Get details about a page with a given title.
      *
@@ -31,32 +31,31 @@ module.exports = (function() {
      */
     info: function(o, callback) {
       var that = this;
-      var title = o.title || o;
-      var abstr = o['abstract'] || 500;
-      var width = o.width || 200;
-      var height = o.height || 200;
-      var url = BASE + '/api/v1/Articles/Details?abstract=' + abstr 
-        + '&width=' + width
-        + '&height=' + height
-        + '&titles=' + title;
+      if (_.isString(o)) {
+        o = { title: o };
+      } else if (_.isArray(o)) {
+        o = { title: o[0] }
+      }
+      o['abstract'] = o['abstract'] || 500;
+      o.width = o.width || 200;
+      o.height = o.height || 200;
+      var url = BASE + '/api/v1/Articles/Details?abstract=' + o['abstract'] 
+        + '&width=' + o.width
+        + '&height=' + o.height
+        + '&titles=' + o.title;
       request.get(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
           var items = JSON.parse(body).items;
-          var article = null;
-          for (var id in items) {
-            article = items[id];
-            break;
-          }
-          if (article) {
+          if (!_.isEmpty(items)) {
+            var article = _.values(items)[0];
             // handle redirection
             var abstr = article['abstract'];
             var upAbstr = abstr.toUpperCase();
             if (upAbstr.startWith('REDIRECT') || upAbstr.startWith('重定向')) {
               var index = abstr.indexOf(' ') + 1;
-              title = abstr.substring(index);
-              // recursion
-              // TODO: a redirection loop will raise an exception
-              that.info(title, callback);
+              o.title = abstr.substring(index);
+              // recursion, TODO: a redirection loop will raise an exception
+              that.info(o, callback);
             } else {
               article.url = BASE + article.url;
               callback('', article);
@@ -177,18 +176,21 @@ module.exports = (function() {
      * }
      */
     search: function(o, callback) {
-      var that = this, 
-          key = o.key || o, 
-          limit = o.limit || 10, 
-          quality = o.quality || 1, 
-          namespace = o.namespace || '0%2C14', 
-          info = o.info || { 'abstract': 500, 'width': 200, 'height': 200 };
-      !info['abstract'] && (info['abstract'] = 500);
-      !info.width && (info.width = 200);
-      !info.height && (info.height = 200);
-      var url = BASE + '/api/v1/Search/List?limit=' + limit 
-        + '&minArticleQuality=' + quality 
-        + '&namespace=' + namespace 
+      var that = this;
+      if (_.isString(o)) {
+        o = { key: o };
+      }
+      o.limit = o.limit || 10;
+      o.quality = o.quality || 1;
+      o.namespace = o.namespace || '0%2C14';
+      var key = o.key;
+      var info = o.info || {};
+      info['abstract'] = info['abstract'] || 500;
+      info.width = info.width || 200;
+      info.height = info.height || 200;
+      var url = BASE + '/api/v1/Search/List?limit=' + o.limit 
+        + '&minArticleQuality=' + o.quality 
+        + '&namespace=' + o.namespace 
         + '&query=' + key;
       request.get(url, function(err, res, body) {
         // 404 indicates no results; 200 otherwise.
@@ -201,6 +203,8 @@ module.exports = (function() {
           var articles = [];
           // sort original results
           items.sort(function(a, b) {
+            if (a === key) return -1;
+            if (b === key) return 1;
             var acontain = (a.title.indexOf(key) != -1);
             var bcontain = (b.title.indexOf(key) != -1);
             if (acontain == bcontain) {
@@ -218,29 +222,26 @@ module.exports = (function() {
           url = BASE + '/api/v1/Articles/Details?abstract=' + info['abstract'] 
             + '&width=' + info.width 
             + '&height=' + info.height 
-            + '&ids=';
-          for (var i = 0; i < items.length; ++i) {
-            url += items[i].id + ',';
-          }
+            + '&ids=' + appendQuery(_.pluck(items, 'id'));
           request.get(url, function(err, res, body) {
             if (err) {
               callback(err);
             } else if (res.statusCode != 200) {
               errStatusCode(res.statusCode, callback);
             } else {
-              var result = JSON.parse(body), 
-                  needMore = false;
-              for (var i = 0; i < items.length; ++i) {
-                var o = result.items[items[i].id];
-                items[i]['abstract'] = o['abstract']
+              var ditems = JSON.parse(body).items;
+              var needMore = false;
+              _.each(items, function(item) {
+                var o = ditems[item.id];
+                item['abstract'] = o['abstract'];
                 var thumbnail = o.thumbnail;
                 if (thumbnail) {
-                  items[i].thumbnail = thumbnail;
-                  items[i]['original_dimensions'] = o['original_dimensions'];
+                  item.thumbnail = thumbnail;
+                  item['original_dimensions'] = o['original_dimensions'];
                 } else {
                   needMore = true;
                 }
-              }
+              });
               // to fetch more pics
               if (needMore) {
                 that._getPics(info, items, callback);
@@ -305,26 +306,17 @@ module.exports = (function() {
           errStatusCode(res.statusCode, callback);
         } else {
           var pics = JSON.parse(body).items;
-          // map pics to picurls
-          var pic2url = {};
-          for (var i in pics) {
-            var pic = pics[i];
-            pic2url[pic.title] = {
-              'thumbnail': pic.thumbnail, 
-              'original_dimensions': pic['original_dimensions']
-            };
-          }
-          // replace mark with picurl
-          for (var i = 0; i < items.length; ++i) {
+          _.each(pics, function(pic) {
+            pics[pic.title] = pic;
+          });
+          _.each(items, function(item, i) {
             var mark = marks[i];
             if (mark) {
-              var picurl = pic2url[mark];
-              if (picurl) {
-                items[i].thumbnail = picurl.thumbnail;
-                items[i]['original_dimensions'] = picurl['original_dimensions'];
-              }
+              var pic = pics[mark];
+              item.thumbnail = pic.thumbnaill;
+              item['original_dimensions'] = pic['original_dimensions'];
             }
-          }
+          });
           callback('', items);
         }
       });
@@ -372,28 +364,9 @@ module.exports = (function() {
    */
   var appendQuery = function(array, delimiter) {
     delimiter = delimiter || ',';
-    var str = '';
-    if (array) {
-      for (var i = 0; i < array.length; ++i) {
-        str += array[i] + delimiter;
-      }
-      return str;
-    } else {
-      return '';
-    }
-  };
-  /*
-   * Transfer an object into an array. Will not ignore undefined value.
-   *
-   * obj2arr({ '1': { 'title': 'one' }, '2': undefined, '3': { 'title': 'three' }}) will return:
-   * [ { 'title': 'one' }, undefined, { 'title': 'three' } ]
-   */
-  var obj2arr = function(o) {
-    var arr = [];
-    for (var e in o) {
-      arr.push(o[e]);
-    }
-    return arr;
+    return _.reduce(array, function(memo, e) {
+      return memo + delimiter + e;
+    }, array[0]);
   };
   String.prototype.startWith = function(str) {
     if (str == null || str == '' || this.length == 0 || str.length > this.length) return false;
@@ -405,5 +378,5 @@ module.exports = (function() {
     callback(err);
   };
   
-  return wikia;
+  return Wikia;
 }());

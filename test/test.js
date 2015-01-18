@@ -90,6 +90,13 @@ describe('search()', function() {
       done();
     });
   });
+  it('when precise title is provided', function(done) {
+    wikia.search('阿多', function(err, items) {
+      err.should.equal('');
+      items[0].should.have.property('title', '阿多');
+      done();
+    });
+  });
 });
 
 describe('quote()', function() {

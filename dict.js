@@ -1,14 +1,15 @@
 module.exports = (function() {
-  var request = require('request'), 
-      fs = require('fs'), 
-      util = require('./util.js');
+  var request = require('request');
+  var _ = require('underscore');
+  var fs = require('fs');
+  var util = require('./util.js');
   
-  var dict = function() {
+  var Dict = function() {
     this.enzh = undefined;
     this.zhen = undefined;
   };
   
-  dict.prototype = {
+  Dict.prototype = {
     getByZh: function(zh) {
       return this.zhen[zh];
     }, 
@@ -17,13 +18,13 @@ module.exports = (function() {
     }, 
     exist: function() {
       if (this.enzh) {
-        !this.zhen && (this.zhen = flip(this.enzh));
+        !this.zhen && (this.zhen = _.invert(this.enzh));
         this.isStale() && this.fetch();
         return true;
       } else {
         if (fs.existsSync('dict-enzh.json')) {
           this.enzh = JSON.parse(fs.readFileSync('dict-enzh.json'));
-          this.zhen = flip(this.enzh);
+          this.zhen = _.invert(this.enzh);
           this.isStale() && this.fetch();
           return true;
         } else {
@@ -36,18 +37,18 @@ module.exports = (function() {
      * dict becomes stale after today.
      */
     isStale: function() {
-      var now = util.dateStr(new Date()) + '000000', 
-          ts = this.enzh['__TIMESTAMP__'];
+      var now = util.dateStr(new Date()) + '000000';
+      var ts = this.enzh['__TIMESTAMP__'];
       return (now - ts > 0);
     }, 
     fetch: function() {
-      var that = this, 
-          url = 'http://zh.asoiaf.wikia.com/api.php?action=query&prop=revisions&rvprop=content&titles=MediaWiki:Common.js/dict&format=json';
+      var that = this;
+      var url = 'http://zh.asoiaf.wikia.com/api.php?action=query&prop=revisions&rvprop=content&titles=MediaWiki:Common.js/dict&format=json';
       request.get(url, function(err, res, body) {
-        var result = JSON.parse(body), 
-            dictStr = result.query.pages['15606'].revisions[0]['*'];  // 15606 is page id of MediaWiki:Common.js/dict
+        var result = JSON.parse(body);
+        var dictStr = result.query.pages['15606'].revisions[0]['*'];  // 15606 is page id of MediaWiki:Common.js/dict
         that.enzh = JSON.parse(dictStr.substring(16)); // jump over 'var MAIN_DICT = '
-        that.zhen = flip(that.enzh);
+        that.zhen = _.invert(that.enzh);
         that.write();
       });
     }, 
@@ -57,15 +58,5 @@ module.exports = (function() {
     }
   };
   
-  var flip = function(o) {
-    if (o) {
-      var fo = {};
-      for (var key in o) {
-        fo[o[key]] = key;
-      }
-      return fo;
-    }
-  };
-  
-  return dict;
+  return Dict;
 }());

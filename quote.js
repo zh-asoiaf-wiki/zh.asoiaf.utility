@@ -1,15 +1,15 @@
 module.exports = (function() {
-  var request = require('request'), 
-      fs = require('fs'), 
-      util = require('./util.js');
+  var request = require('request');
+  var _ = require('underscore');
+  var fs = require('fs');
+  var util = require('./util.js');
       
-  var quote = function() {
+  var Quote = function() {
   };
   
-  quote.prototype = {
+  Quote.prototype = {
     get: function() {
-      var rand = Math.random() * this.data.length;
-      return this.data[Math.floor(rand)];
+      return this.data[_.random(this.data.length)];
     }, 
     exist: function() {
       if (this.data) {
@@ -36,17 +36,17 @@ module.exports = (function() {
           return (now - this.timestamp > 0);
         }
       } else {
-        var now = util.dateStr(new Date()), 
-            ts = util.dateStr(date);
+        var now = util.dateStr(new Date());
+        var ts = util.dateStr(date);
         return (now - ts > 0);
       }
     },     
     fetch: function() {
-      var that = this, 
-          url = 'http://zh.asoiaf.wikia.com/api.php?action=query&prop=revisions&rvprop=content&titles=Template:Featured%20Quote/json&format=json';
+      var that = this;
+      var url = 'http://zh.asoiaf.wikia.com/api.php?action=query&prop=revisions&rvprop=content&titles=Template:Featured%20Quote/json&format=json';
       request.get(url, function(err, res, body) {
-        var result = JSON.parse(body), 
-            quoteStr = result.query.pages['39215'].revisions[0]['*'];  // 39215 is page id of Template:Featured_Quote/json
+        var result = JSON.parse(body);
+        var quoteStr = result.query.pages['39215'].revisions[0]['*'];  // 39215 is page id of Template:Featured_Quote/json
         that.data = JSON.parse(quoteStr);
         that.timestamp = util.dateStr(new Date());
         that.write();
@@ -57,5 +57,5 @@ module.exports = (function() {
     }
   };
   
-  return quote;
+  return Quote;
 }());

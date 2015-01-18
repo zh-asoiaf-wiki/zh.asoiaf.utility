@@ -1,7 +1,10 @@
+/*
+ * Plan to depreciate
+ */
 module.exports = (function() {
   var bot = require('nodemw');
   
-  var wiki = function(options) {
+  var Wiki = function(options) {
     this.config = config = options.config;
     /* 
      * config is an object by default, 
@@ -10,7 +13,7 @@ module.exports = (function() {
      this.client = new bot(config);
    };
    
-   wiki.prototype = {
+   Wiki.prototype = {
      tryBot: function(callback) {
        if (this.isLogin !== true) {
          var that = this;
@@ -24,5 +27,5 @@ module.exports = (function() {
      }
    };
    
-   return wiki;
+   return Wiki;
  }());
