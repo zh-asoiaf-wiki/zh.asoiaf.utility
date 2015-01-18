@@ -31,7 +31,9 @@ module.exports = (function() {
      */
     info: function(o, callback) {
       var that = this;
-      if (_.isString(o)) {
+      if (!o) {
+        callback();
+      } else if (_.isString(o)) {
         o = { title: o };
       } else if (_.isArray(o)) {
         o = { title: o[0] }
@@ -101,7 +103,9 @@ module.exports = (function() {
       };
     
       var that = this;
-      if (_.isString(o)) {
+      if (!o) {
+        callback();
+      } else if (_.isString(o)) {
         o = { titles: [ o ] };
       } else if (_.isArray(o)) {
         o = { titles: o };
@@ -179,7 +183,10 @@ module.exports = (function() {
      */
     search: function(o, callback) {
       var that = this;
-      if (_.isString(o)) {
+      if (!o) {
+        errStatusCode(400, callback);
+        return;
+      } else if (_.isString(o)) {
         o = { key: o };
       }
       o.limit = o.limit || 10;
