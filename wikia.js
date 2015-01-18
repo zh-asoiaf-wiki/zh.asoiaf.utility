@@ -93,7 +93,9 @@ module.exports = (function() {
           while (_.isString(v)) {
             v = items[v];
           }
-          res.push(v);
+          if (v) {
+            res.push(v);
+          }
         });
         return _.uniq(res);
       };
