@@ -101,8 +101,9 @@ describe('search()', function() {
 
 describe('quote()', function() {
   it('quote()', function(done) {
-    wikia.quote(function(err, items) {
+    wikia.quote(function(err, quote) {
       err.should.equal('');
+      quote.quote.should.be.type('string');
       done();
     });
   });

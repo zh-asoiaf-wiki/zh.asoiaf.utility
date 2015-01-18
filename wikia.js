@@ -344,8 +344,8 @@ module.exports = (function() {
           callback(err);
         } else {
           callback('', {
-            quote: q, 
-            items: infos
+            quote: k, 
+            quotedBy: (infos || v)
           });
         }
       });
