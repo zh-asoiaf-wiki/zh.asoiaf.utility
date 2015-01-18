@@ -349,7 +349,7 @@ module.exports = (function() {
         } else {
           callback('', {
             quote: k, 
-            quotedBy: (infos || v)
+            quotedBy: ((infos.length === 0) ? v : infos)
           });
         }
       });
